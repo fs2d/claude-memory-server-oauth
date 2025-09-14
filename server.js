@@ -837,6 +837,23 @@ const server = createServer((req, res) => {
     return res.writeHead(200).end();
   }
   
+  // Add this route handler
+if (parsedUrl.pathname === '/download-memory' && req.method === 'GET') {
+  try {
+    // Return the raw memory data as JSON
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': 'attachment; filename="memory-backup.json"'
+    });
+    res.end(JSON.stringify(memoryData, null, 2));
+    return;
+  } catch (error) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Failed to export memory data' }));
+    return;
+  }
+}
+
   // Route requests
   switch (path) {
     case '/mcp':
