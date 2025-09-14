@@ -292,17 +292,48 @@ function handleToolsCall(req, res) {
 
 // Root endpoint
 function handleRoot(req, res) {
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(`
-    <h1>Claude Memory Server with OAuth</h1>
-    <p>Server is running with OAuth support!</p>
-    <ul>
-      <li><a href="/.well-known/oauth-authorization-server">OAuth Discovery</a></li>
-      <li>OAuth endpoints: /authorize, /token, /register</li>  
-      <li>MCP endpoints: /tools/list, /tools/call (require auth)</li>
-    </ul>
-  `);
-}
+    // Check if Claude is asking for SSE
+    if (req.method === 'GET' && req.headers.accept === 'text/event-stream') {
+      console.log('Claude requesting SSE connection...');
+      
+      // SSE headers
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Authorization'
+      });
+      
+      // Send initial MCP ready message
+      res.write('event: message\n');
+      res.write('data: {"jsonrpc":"2.0","method":"server/ready","params":{}}\n\n');
+      
+      // Keep connection alive
+      const keepAlive = setInterval(() => {
+        res.write('event: ping\n');
+        res.write('data: {}\n\n');
+      }, 30000);
+      
+      req.on('close', () => {
+        clearInterval(keepAlive);
+        console.log('SSE connection closed');
+      });
+      
+    } else {
+      // Regular browser request - show HTML page
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`
+        <h1>Claude Memory Server with OAuth</h1>
+        <p>Server is running with SSE support!</p>
+        <ul>
+          <li><a href="/.well-known/oauth-authorization-server">OAuth Discovery</a></li>
+          <li>OAuth endpoints: /authorize, /token, /register</li>  
+          <li>MCP endpoints: /tools/list, /tools/call (require auth)</li>
+        </ul>
+      `);
+    }
+  }
 
 // Original MCP handler for backward compatibility (protected)
 function handleMCPRequest(req, res) {
