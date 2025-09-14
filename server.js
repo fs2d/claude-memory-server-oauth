@@ -381,6 +381,14 @@ function handleRoot(req, res) {
           res.writeHead(200);
           res.end();
           return;
+        } else if (message.method === 'resources/list') {
+          response = {
+            jsonrpc: "2.0",
+            id: message.id,
+            result: {
+              resources: [] // Empty for now, we're using tools not resources
+            }
+          };
         } else if (message.method === 'tools/list') {
           response = {
             jsonrpc: "2.0",
