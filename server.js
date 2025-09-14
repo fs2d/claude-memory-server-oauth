@@ -101,12 +101,12 @@ function handleAuthorize(req, res) {
   } = query;
   
   // Validate client
-  const client = clients.get(client_id);
-  if (!client) {
-    res.writeHead(400, { 'Content-Type': 'text/html' });
-    res.end('<h1>Error: Invalid client</h1>');
-    return;
-  }
+  // const client = clients.get(client_id);
+  // if (!client) {
+  //   res.writeHead(400, { 'Content-Type': 'text/html' });
+  //   res.end('<h1>Error: Invalid client</h1>');
+  //   return;
+  // }
   
   // For demo, auto-approve (in production, show consent screen)
   const authCode = crypto.randomBytes(32).toString('hex');
