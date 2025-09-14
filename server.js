@@ -2,6 +2,7 @@ const { createServer } = require('http');
 const crypto = require('crypto');
 const url = require('url');
 
+
 // Your real memory data
 const { memoryData, getAllEntities, getEntity } = require('./memory-data.js');
 
@@ -361,8 +362,16 @@ function handleMCPRequest(req, res) {
 
 // Main request handler
 const server = createServer((req, res) => {
-  const parsedUrl = url.parse(req.url, true);
-  const path = parsedUrl.pathname;
+    // Add complete request logging
+    console.log('=== INCOMING REQUEST ===');
+    console.log('Time:', new Date().toISOString());
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('========================');
+    
+    const parsedUrl = url.parse(req.url, true);
+    const path = parsedUrl.pathname;
   
   // Enable CORS for all requests
   res.setHeader('Access-Control-Allow-Origin', '*');
