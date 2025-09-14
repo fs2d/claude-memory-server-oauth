@@ -511,23 +511,21 @@ const server = createServer((req, res) => {
     if (req.method === 'GET' && req.headers.accept === 'text/event-stream') {
       console.log('Claude requesting SSE connection...');
       
+      const sessionId = crypto.randomUUID().replace(/-/g, '');
+      
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache', 
         'Connection': 'keep-alive',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Authorization'
       });
       
-      res.write('event: message\n');
-      const sessionId = crypto.randomUUID().replace(/-/g, '');
-
       res.write('event: endpoint\n');
       res.write(`data: /messages?session_id=${sessionId}\n\n`);
       
-      // Store session for message handling
+      // STORE THE SESSION
       sessions.set(sessionId, { connected: true, res: res });
-
       
       const keepAlive = setInterval(() => {
         res.write('event: ping\n');
@@ -545,16 +543,16 @@ const server = createServer((req, res) => {
     }
     break;
     case '/messages':
-  const query = parsedUrl.query;
-  const sessionId = query.session_id;
-  
-  if (req.method === 'POST') {
-    handleMCPMessage(req, res, sessionId);
-  } else {
-    res.writeHead(405);
-    res.end();
-  }
-  break;
+      const query = parsedUrl.query;
+      const sessionId = query.session_id;
+      
+      if (req.method === 'POST') {
+        handleMCPMessage(req, res, sessionId);
+      } else {
+        res.writeHead(405);
+        res.end();
+      }
+      break;
   case '/.well-known/oauth-protected-resource':
   handleProtectedResourceDiscovery(res);
   break;
