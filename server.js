@@ -427,7 +427,7 @@ const server = createServer((req, res) => {
 
     const parsedUrl = url.parse(req.url, true);
     const path = parsedUrl.pathname;
-     
+  
   // Enable CORS for all requests
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -460,23 +460,15 @@ const server = createServer((req, res) => {
       });
       
       res.write('event: message\n');
-      res.write('data: {"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n\n');
+      const sessionId = crypto.randomUUID().replace(/-/g, '');
 
-      console.log('SSE initialization sent, waiting for Claude responses...');
+      res.write('event: endpoint\n');
+      res.write(`data: /messages?session_id=${sessionId}\n\n`);
+      
+      // Store session for message handling
+      sessions.set(sessionId, { connected: true, res: res });
 
-// Listen for data on the request stream
-let sseBody = '';
-req.on('data', chunk => {
-  sseBody += chunk;
-  console.log('RECEIVED DATA ON SSE STREAM:', chunk.toString());
-});
-
-req.on('end', () => {
-  if (sseBody) {
-    console.log('SSE STREAM ENDED WITH BODY:', sseBody);
-  }
-});
-
+      
       const keepAlive = setInterval(() => {
         res.write('event: ping\n');
         res.write('data: {}\n\n');
@@ -492,6 +484,17 @@ req.on('end', () => {
       res.end('<h1>Server Running</h1>');
     }
     break;
+    case '/messages':
+  const query = parsedUrl.query;
+  const sessionId = query.session_id;
+  
+  if (req.method === 'POST') {
+    handleMCPMessage(req, res, sessionId);
+  } else {
+    res.writeHead(405);
+    res.end();
+  }
+  break;
     case '/.well-known/oauth-authorization-server':
       handleDiscovery(res);
       break;
