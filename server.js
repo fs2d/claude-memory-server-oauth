@@ -335,6 +335,30 @@ function handleRoot(req, res) {
     }
   }
 
+  function handleMCPMessage(req, res) {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const message = JSON.parse(body);
+        console.log('Received MCP message:', message);
+        
+        const response = {
+          jsonrpc: "2.0",
+          id: message.id,
+          result: { status: "received" }
+        };
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(response));
+      } catch (err) {
+        console.error('Error parsing MCP message:', err);
+        res.writeHead(400);
+        res.end();
+      }
+    });
+  }
+  
 // Original MCP handler for backward compatibility (protected)
 function handleMCPRequest(req, res) {
   validateToken(req, res, () => {
@@ -415,6 +439,14 @@ const server = createServer((req, res) => {
   
   // Route requests
   switch (path) {
+    case '/mcp':
+  if (req.method === 'POST') {
+    handleMCPMessage(req, res);
+  } else {
+    res.writeHead(405);
+    res.end();
+  }
+  break;
     case '/':
       handleRoot(req, res);
       break;
