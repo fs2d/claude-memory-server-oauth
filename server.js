@@ -349,6 +349,7 @@ function handleRoot(req, res) {
   }
 
   function handleMCPMessage(req, res, sessionId) {
+    console.log('=== HANDLING MCP MESSAGE ===');
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
