@@ -1,7 +1,18 @@
 const { createServer } = require('http');
 const crypto = require('crypto');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
 
+function saveMemoryData() {
+  try {
+    const dataPath = path.join(__dirname, 'memory-data.json');
+    fs.writeFileSync(dataPath, JSON.stringify(memoryData, null, 2));
+    console.log('Memory data saved successfully');
+  } catch (error) {
+    console.error('Error saving memory data:', error);
+  }
+}
 
 // Your real memory data
 const { memoryData, getAllEntities, getEntity } = require('./memory-data.js');
@@ -377,7 +388,6 @@ function handleRoot(req, res) {
             }
           };
         } else if (message.method === 'notifications/initialized') {
-          // No response needed for notifications
           res.writeHead(200);
           res.end();
           return;
@@ -386,7 +396,7 @@ function handleRoot(req, res) {
             jsonrpc: "2.0",
             id: message.id,
             result: {
-              resources: [] // Empty for now, we're using tools not resources
+              resources: []
             }
           };
         } else if (message.method === 'tools/list') {
@@ -398,44 +408,348 @@ function handleRoot(req, res) {
                 {
                   name: "memory_read_graph",
                   description: "Read the entire knowledge graph from memory",
+                  inputSchema: { type: "object", properties: {}, required: [] }
+                },
+                {
+                  name: "memory_create_entities",
+                  description: "Create multiple new entities in the knowledge graph",
                   inputSchema: {
                     type: "object",
-                    properties: {},
-                    required: []
+                    properties: {
+                      entities: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            name: { type: "string" },
+                            entityType: { type: "string" },
+                            observations: { type: "array", items: { type: "string" } }
+                          },
+                          required: ["name", "entityType", "observations"]
+                        }
+                      }
+                    },
+                    required: ["entities"]
+                  }
+                },
+                {
+                  name: "memory_add_observations",
+                  description: "Add new observations to existing entities in the knowledge graph",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      observations: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            entityName: { type: "string" },
+                            contents: { type: "array", items: { type: "string" } }
+                          },
+                          required: ["entityName", "contents"]
+                        }
+                      }
+                    },
+                    required: ["observations"]
+                  }
+                },
+                {
+                  name: "memory_search_nodes",
+                  description: "Search for nodes in the knowledge graph based on a query",
+                  inputSchema: {
+                    type: "object",
+                    properties: { query: { type: "string" } },
+                    required: ["query"]
+                  }
+                },
+                {
+                  name: "memory_open_nodes", 
+                  description: "Open specific nodes in the knowledge graph by their names",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      names: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["names"]
+                  }
+                },
+                {
+                  name: "memory_create_relations",
+                  description: "Create multiple new relations between entities",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      relations: {
+                        type: "array",
+                        items: {
+                          type: "object", 
+                          properties: {
+                            from: { type: "string" },
+                            to: { type: "string" },
+                            relationType: { type: "string" }
+                          },
+                          required: ["from", "to", "relationType"]
+                        }
+                      }
+                    },
+                    required: ["relations"]
+                  }
+                },
+                {
+                  name: "memory_delete_entities",
+                  description: "Delete multiple entities and their associated relations",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      entityNames: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["entityNames"]
+                  }
+                },
+                {
+                  name: "memory_delete_observations",
+                  description: "Delete specific observations from entities",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      deletions: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            entityName: { type: "string" },
+                            observations: { type: "array", items: { type: "string" } }
+                          },
+                          required: ["entityName", "observations"]
+                        }
+                      }
+                    },
+                    required: ["deletions"]
+                  }
+                },
+                {
+                  name: "memory_delete_relations",
+                  description: "Delete multiple relations from the knowledge graph",
+                  inputSchema: {
+                    type: "object",
+                    properties: {
+                      relations: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            from: { type: "string" },
+                            to: { type: "string" },
+                            relationType: { type: "string" }
+                          },
+                          required: ["from", "to", "relationType"]
+                        }
+                      }
+                    },
+                    required: ["relations"]
                   }
                 }
               ]
             }
           };
-        } else {
-          response = {
-            jsonrpc: "2.0", 
-            id: message.id,
-            error: {
-              code: -32601,
-              message: `Method '${message.method}' not found`
+        } else if (message.method === 'tools/call') {
+          const { name, arguments: args } = message.params;
+          
+          try {
+            let toolResult;
+            
+            switch (name) {
+              case 'memory_read_graph':
+                toolResult = {
+                  content: [{ type: "text", text: JSON.stringify(memoryData, null, 2) }]
+                };
+                break;
+                
+              case 'memory_create_entities':
+                const { entities } = args;
+                const createdEntities = [];
+                
+                entities.forEach(entity => {
+                  const newEntity = {
+                    type: "entity",
+                    name: entity.name,
+                    entityType: entity.entityType,
+                    observations: entity.observations
+                  };
+                  memoryData.entities = memoryData.entities || [];
+                  memoryData.entities.push(newEntity);
+                  createdEntities.push({ entityName: entity.name, created: true });
+                });
+                
+                saveMemoryData();
+                toolResult = { content: [{ type: "text", text: JSON.stringify(createdEntities) }] };
+                break;
+                
+              case 'memory_add_observations':
+                const { observations } = args;
+                const addResults = [];
+                
+                observations.forEach(obs => {
+                  const entity = memoryData.entities.find(e => e.name === obs.entityName);
+                  if (entity) {
+                    entity.observations = entity.observations || [];
+                    entity.observations.push(...obs.contents);
+                    addResults.push({
+                      entityName: obs.entityName,
+                      addedObservations: obs.contents
+                    });
+                  }
+                });
+                
+                saveMemoryData();
+                toolResult = { content: [{ type: "text", text: JSON.stringify(addResults) }] };
+                break;
+                
+              case 'memory_search_nodes':
+                const { query } = args;
+                const searchResults = [];
+                
+                memoryData.entities.forEach(entity => {
+                  const matchesName = entity.name.toLowerCase().includes(query.toLowerCase());
+                  const matchesType = entity.entityType.toLowerCase().includes(query.toLowerCase());
+                  const matchesObservations = entity.observations && entity.observations.some(obs => 
+                    obs.toLowerCase().includes(query.toLowerCase())
+                  );
+                  
+                  if (matchesName || matchesType || matchesObservations) {
+                    searchResults.push(entity);
+                  }
+                });
+                
+                toolResult = {
+                  content: [{ 
+                    type: "text", 
+                    text: JSON.stringify({ entities: searchResults, relations: [] }) 
+                  }]
+                };
+                break;
+                
+              case 'memory_open_nodes':
+                const { names } = args;
+                const openResults = [];
+                
+                names.forEach(name => {
+                  const entity = memoryData.entities.find(e => e.name === name);
+                  if (entity) openResults.push(entity);
+                });
+                
+                const nodeRelations = memoryData.relations ? memoryData.relations.filter(rel => 
+                  names.includes(rel.from) || names.includes(rel.to)
+                ) : [];
+                
+                toolResult = {
+                  content: [{ 
+                    type: "text", 
+                    text: JSON.stringify({ entities: openResults, relations: nodeRelations }) 
+                  }]
+                };
+                break;
+                
+              case 'memory_create_relations':
+                const { relations } = args;
+                const createdRels = [];
+                
+                relations.forEach(rel => {
+                  const newRelation = {
+                    type: "relation",
+                    from: rel.from,
+                    to: rel.to, 
+                    relationType: rel.relationType
+                  };
+                  memoryData.relations = memoryData.relations || [];
+                  memoryData.relations.push(newRelation);
+                  createdRels.push(newRelation);
+                });
+                
+                saveMemoryData();
+                toolResult = { content: [{ type: "text", text: JSON.stringify(createdRels) }] };
+                break;
+                
+              case 'memory_delete_entities':
+                const { entityNames } = args;
+                
+                memoryData.entities = memoryData.entities.filter(e => !entityNames.includes(e.name));
+                memoryData.relations = memoryData.relations ? memoryData.relations.filter(r => 
+                  !entityNames.includes(r.from) && !entityNames.includes(r.to)
+                ) : [];
+                
+                saveMemoryData();
+                toolResult = { 
+                  content: [{ type: "text", text: JSON.stringify({ deletedEntities: entityNames, success: true }) }] 
+                };
+                break;
+                
+              case 'memory_delete_observations':
+                const { deletions } = args;
+                const deleteResults = [];
+                
+                deletions.forEach(del => {
+                  const entity = memoryData.entities.find(e => e.name === del.entityName);
+                  if (entity) {
+                    entity.observations = entity.observations.filter(obs => !del.observations.includes(obs));
+                    deleteResults.push({
+                      entityName: del.entityName,
+                      deletedObservations: del.observations
+                    });
+                  }
+                });
+                
+                saveMemoryData();
+                toolResult = { content: [{ type: "text", text: JSON.stringify(deleteResults) }] };
+                break;
+                
+              case 'memory_delete_relations':
+                const { relations: relsToDelete } = args;
+                
+                memoryData.relations = memoryData.relations ? memoryData.relations.filter(rel => {
+                  return !relsToDelete.some(delRel => 
+                    rel.from === delRel.from && rel.to === delRel.to && rel.relationType === delRel.relationType
+                  );
+                }) : [];
+                
+                saveMemoryData();
+                toolResult = { 
+                  content: [{ type: "text", text: JSON.stringify({ deletedRelations: relsToDelete, success: true }) }] 
+                };
+                break;
+                
+              default:
+                toolResult = { content: [{ type: "text", text: JSON.stringify({ error: `Unknown tool: ${name}` }) }] };
             }
-          };
+            
+            response = { jsonrpc: "2.0", id: message.id, result: toolResult };
+            
+          } catch (toolError) {
+            response = {
+              jsonrpc: "2.0",
+              id: message.id,
+              error: { code: -32603, message: `Tool execution error: ${toolError.message}` }
+            }
+            };
+          }
+        
+        // Get the SSE connection for this session
+        const session = sessions.get(sessionId);
+        if (session && session.res) {
+          session.res.write(`data: ${JSON.stringify(response)}\n\n`);
+          console.log('Sent response over SSE:', response);
         }
-      // Get the SSE connection for this session
-      const session = sessions.get(sessionId);
-      if (session && session.res) {
-        // Send response over SSE stream
-        session.res.write(`data: ${JSON.stringify(response)}\n\n`);
-        console.log('Sent response over SSE:', response);
+        
+        res.writeHead(200);
+        res.end();
+        
+      } catch (err) {
+        console.error('Error parsing MCP message:', err);
+        res.writeHead(400);
+        res.end();
       }
-      
-      // Send empty HTTP response to close the POST request
-      res.writeHead(200);
-      res.end();
-      
-    } catch (err) {
-      console.error('Error parsing MCP message:', err);
-      res.writeHead(400);
-      res.end();
-    }
-  });
-}
+    });
+  }
   
 // Original MCP handler for backward compatibility (protected)
 function handleMCPRequest(req, res) {
