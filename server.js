@@ -356,11 +356,58 @@ function handleRoot(req, res) {
         const message = JSON.parse(body);
         console.log('Received MCP message:', message);
         
-        const response = {
-          jsonrpc: "2.0",
-          id: message.id,
-          result: { status: "received" }
-        };
+        let response;
+        
+        if (message.method === 'initialize') {
+          response = {
+            jsonrpc: "2.0",
+            id: message.id,
+            result: {
+              protocolVersion: "2025-06-18",
+              capabilities: {
+                tools: { list: true, call: true },
+                resources: {},
+                prompts: {}
+              },
+              serverInfo: {
+                name: "claude-memory-server", 
+                version: "1.0.0"
+              }
+            }
+          };
+        } else if (message.method === 'notifications/initialized') {
+          // No response needed for notifications
+          res.writeHead(200);
+          res.end();
+          return;
+        } else if (message.method === 'tools/list') {
+          response = {
+            jsonrpc: "2.0",
+            id: message.id,
+            result: {
+              tools: [
+                {
+                  name: "memory_read_graph",
+                  description: "Read the entire knowledge graph from memory",
+                  inputSchema: {
+                    type: "object",
+                    properties: {},
+                    required: []
+                  }
+                }
+              ]
+            }
+          };
+        } else {
+          response = {
+            jsonrpc: "2.0", 
+            id: message.id,
+            error: {
+              code: -32601,
+              message: `Method '${message.method}' not found`
+            }
+          };
+        }
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(response));
