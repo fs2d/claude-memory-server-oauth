@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 function saveMemoryData() {
+  console.log(`[${new Date().toISOString()}] Saving memory: ${memoryData.entities.length} entities`);
+  console.log('Recent entity names:', memoryData.entities.slice(-5).map(e => e.name));
   try {
     const dataPath = path.join(__dirname, 'memory-data.json');
     fs.writeFileSync(dataPath, JSON.stringify(memoryData, null, 2));
@@ -12,6 +14,7 @@ function saveMemoryData() {
   } catch (error) {
     console.error('Error saving memory data:', error);
   }
+  console.log('Save completed successfully');
 }
 
 // Your real memory data
