@@ -409,16 +409,25 @@ function handleRoot(req, res) {
             }
           };
         }
-        
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(response));
-      } catch (err) {
-        console.error('Error parsing MCP message:', err);
-        res.writeHead(400);
-        res.end();
+      // Get the SSE connection for this session
+      const session = sessions.get(sessionId);
+      if (session && session.res) {
+        // Send response over SSE stream
+        session.res.write(`data: ${JSON.stringify(response)}\n\n`);
+        console.log('Sent response over SSE:', response);
       }
-    });
-  }
+      
+      // Send empty HTTP response to close the POST request
+      res.writeHead(200);
+      res.end();
+      
+    } catch (err) {
+      console.error('Error parsing MCP message:', err);
+      res.writeHead(400);
+      res.end();
+    }
+  });
+}
   
 // Original MCP handler for backward compatibility (protected)
 function handleMCPRequest(req, res) {
