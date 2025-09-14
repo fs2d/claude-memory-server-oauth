@@ -348,7 +348,7 @@ function handleRoot(req, res) {
     }
   }
 
-  function handleMCPMessage(req, res) {
+  function handleMCPMessage(req, res, sessionId) {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
