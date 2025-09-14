@@ -854,6 +854,19 @@ if (parsedUrl.pathname === '/download-memory' && req.method === 'GET') {
   }
 }
 
+// Add this route for debugging
+if (parsedUrl.pathname === '/debug' && req.method === 'GET') {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    totalEntities: memoryData.entities.length,
+    totalRelations: memoryData.relations.length,
+    entityNames: memoryData.entities.map(e => e.name),
+    lastModified: new Date().toISOString(),
+    sampleEntity: memoryData.entities[0] || null
+  }, null, 2));
+  return;
+}
+
   // Route requests
   switch (path) {
     case '/mcp':
