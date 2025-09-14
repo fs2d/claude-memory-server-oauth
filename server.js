@@ -427,19 +427,7 @@ const server = createServer((req, res) => {
 
     const parsedUrl = url.parse(req.url, true);
     const path = parsedUrl.pathname;
-  
-    console.log(`=== MCP DEBUG: ${req.method} ${path} ===`);
-    if (req.method === 'POST' && path !== '/token' && path !== '/authorize') {
-      console.log('MCP POST Body:', body);
-    }
-    if (req.headers.upgrade === 'websocket') {
-      console.log('Claude requesting WebSocket upgrade!');
-    }
-    if (req.headers.accept && req.headers.accept.includes('text/event-stream')) {
-      console.log('SSE request detected');
-    }
-    console.log('--- End MCP Debug ---\n');
-
+     
   // Enable CORS for all requests
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -473,6 +461,21 @@ const server = createServer((req, res) => {
       
       res.write('event: message\n');
       res.write('data: {"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n\n');
+
+      console.log('SSE initialization sent, waiting for Claude responses...');
+
+// Listen for data on the request stream
+let sseBody = '';
+req.on('data', chunk => {
+  sseBody += chunk;
+  console.log('RECEIVED DATA ON SSE STREAM:', chunk.toString());
+});
+
+req.on('end', () => {
+  if (sseBody) {
+    console.log('SSE STREAM ENDED WITH BODY:', sseBody);
+  }
+});
 
       const keepAlive = setInterval(() => {
         res.write('event: ping\n');
