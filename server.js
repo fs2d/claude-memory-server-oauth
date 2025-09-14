@@ -24,6 +24,19 @@ const authCodes = new Map();
 const accessTokens = new Map();
 const sessions = new Map();
 
+function handleProtectedResourceDiscovery(res) {
+  const discovery = {
+    resource: BASE_URL,
+    authorization_servers: [BASE_URL],
+    scopes_supported: ["mcp"],
+    bearer_methods_supported: ["header"],
+    resource_documentation: BASE_URL
+  };
+  
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(discovery, null, 2));
+}
+
 // OAuth Discovery endpoint
 function handleDiscovery(res) {
   const discovery = {
@@ -494,6 +507,9 @@ const server = createServer((req, res) => {
     res.writeHead(405);
     res.end();
   }
+  break;
+  case '/.well-known/oauth-protected-resource':
+  handleProtectedResourceDiscovery(res);
   break;
     case '/.well-known/oauth-authorization-server':
       handleDiscovery(res);
