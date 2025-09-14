@@ -1,5 +1,4 @@
 const { createServer } = require('http');
-const url = require('url');
 const crypto = require('crypto');
 
 // Your real memory data
@@ -361,7 +360,7 @@ function handleMCPRequest(req, res) {
 
 // Main request handler
 const server = createServer((req, res) => {
-  const parsedUrl = parse(req.url, true);
+  const parsedUrl = url.parse(req.url, true);
   const path = parsedUrl.pathname;
   
   // Enable CORS for all requests
