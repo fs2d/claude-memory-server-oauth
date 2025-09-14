@@ -447,9 +447,36 @@ const server = createServer((req, res) => {
     res.end();
   }
   break;
-    case '/':
-      handleRoot(req, res);
-      break;
+  case '/':
+    if (req.method === 'GET' && req.headers.accept === 'text/event-stream') {
+      console.log('Claude requesting SSE connection...');
+      
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Authorization'
+      });
+      
+      res.write('event: message\n');
+      res.write('data: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"claude-memory-server","version":"1.0.0"}}}\n\n');
+      
+      const keepAlive = setInterval(() => {
+        res.write('event: ping\n');
+        res.write('data: {}\n\n');
+      }, 30000);
+      
+      req.on('close', () => {
+        clearInterval(keepAlive);
+        console.log('SSE connection closed');
+      });
+      
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<h1>Server Running</h1>');
+    }
+    break;
     case '/.well-known/oauth-authorization-server':
       handleDiscovery(res);
       break;
