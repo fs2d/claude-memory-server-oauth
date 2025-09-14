@@ -424,20 +424,22 @@ const server = createServer((req, res) => {
     console.log('URL:', req.url);
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     console.log('========================');
-    console.log(`=== MCP DEBUG: ${req.method} ${path} ===`);
-if (req.method === 'POST' && path !== '/token' && path !== '/authorize') {
-  console.log('MCP POST Body:', body);
-}
-if (req.headers.upgrade === 'websocket') {
-  console.log('Claude requesting WebSocket upgrade!');
-}
-if (req.headers.accept && req.headers.accept.includes('text/event-stream')) {
-  console.log('SSE request detected');
-}
-console.log('--- End MCP Debug ---\n');
+
     const parsedUrl = url.parse(req.url, true);
     const path = parsedUrl.pathname;
   
+    console.log(`=== MCP DEBUG: ${req.method} ${path} ===`);
+    if (req.method === 'POST' && path !== '/token' && path !== '/authorize') {
+      console.log('MCP POST Body:', body);
+    }
+    if (req.headers.upgrade === 'websocket') {
+      console.log('Claude requesting WebSocket upgrade!');
+    }
+    if (req.headers.accept && req.headers.accept.includes('text/event-stream')) {
+      console.log('SSE request detected');
+    }
+    console.log('--- End MCP Debug ---\n');
+
   // Enable CORS for all requests
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
