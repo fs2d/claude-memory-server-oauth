@@ -399,6 +399,14 @@ function handleRoot(req, res) {
               resources: []
             }
           };
+        } else if (message.method === 'prompts/list') {
+          response = {
+            jsonrpc: "2.0",
+            id: message.id,
+            result: {
+              prompts: [] // Empty prompts list
+            }
+          };
         } else if (message.method === 'tools/list') {
           response = {
             jsonrpc: "2.0",
