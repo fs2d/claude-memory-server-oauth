@@ -4,8 +4,32 @@ const url = require('url');
 const fs = require('fs');
 const path = require('path');
 
+// FIXED: Single source of truth for memory data
+let memoryData = {
+  entities: [],
+  relations: []
+};
+
+// Load memory data from JSON file on startup
+function loadMemoryData() {
+  try {
+    const dataPath = path.join(__dirname, 'memory-data.json');
+    if (fs.existsSync(dataPath)) {
+      const fileContent = fs.readFileSync(dataPath, 'utf8');
+      memoryData = JSON.parse(fileContent);
+      console.log(`[${new Date().toISOString()}] Loaded memory: ${memoryData.entities.length} entities, ${memoryData.relations?.length || 0} relations`);
+    } else {
+      console.log(`[${new Date().toISOString()}] No existing memory file found, starting with empty memory`);
+    }
+  } catch (error) {
+    console.error('Error loading memory data:', error);
+    // Keep empty default structure if file is corrupted
+  }
+}
+
+// FIXED: Save and reload in-memory data
 function saveMemoryData() {
-  console.log(`[${new Date().toISOString()}] Saving memory: ${memoryData.entities.length} entities`);
+  console.log(`[${new Date().toISOString()}] Saving memory: ${memoryData.entities.length} entities, ${memoryData.relations?.length || 0} relations`);
   console.log('Recent entity names:', memoryData.entities.slice(-5).map(e => e.name));
   try {
     const dataPath = path.join(__dirname, 'memory-data.json');
@@ -17,8 +41,8 @@ function saveMemoryData() {
   console.log('Save completed successfully');
 }
 
-// Your real memory data
-const { memoryData, getAllEntities, getEntity } = require('./memory-data.js');
+// Load data on server startup
+loadMemoryData();
 
 // OAuth and server configuration - using environment variables
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -126,14 +150,6 @@ function handleAuthorize(req, res) {
     code_challenge, 
     code_challenge_method 
   } = query;
-  
-  // Validate client
-  // const client = clients.get(client_id);
-  // if (!client) {
-  //   res.writeHead(400, { 'Content-Type': 'text/html' });
-  //   res.end('<h1>Error: Invalid client</h1>');
-  //   return;
-  // }
   
   // For demo, auto-approve (in production, show consent screen)
   const authCode = crypto.randomBytes(32).toString('hex');
@@ -761,62 +777,6 @@ function handleRoot(req, res) {
       }
     });
   }
-  
-// Original MCP handler for backward compatibility (protected)
-function handleMCPRequest(req, res) {
-  validateToken(req, res, () => {
-    let body = '';
-    
-    req.on('data', chunk => {
-      body += chunk.toString();
-    });
-    
-    req.on('end', async () => {
-      try {
-        const { method, params } = JSON.parse(body);
-        
-        switch (method) {
-          case 'tools/list':
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              tools: [
-                {
-                  name: "memory_read_graph",
-                  description: "Read the entire knowledge graph",
-                  inputSchema: { type: "object", properties: {} }
-                }
-              ]
-            }));
-            break;
-            
-          case 'tools/call':
-            const { name } = params;
-            
-            if (name === 'memory_read_graph') {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({
-                content: [{ 
-                  type: "text",
-                  text: JSON.stringify(memoryData, null, 2)
-                }]
-              }));
-            } else {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: `Unknown tool: ${name}` }));
-            }
-            break;
-            
-          default:
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: `Unknown method: ${method}` }));
-        }
-      } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: error.message }));
-      }
-    });
-  });
-}
 
 // Main request handler
 const server = createServer((req, res) => {
@@ -840,29 +800,29 @@ const server = createServer((req, res) => {
     return res.writeHead(200).end();
   }
   
-  // Add this route handler
-if (parsedUrl.pathname === '/download-memory' && req.method === 'GET') {
-  try {
-    // Return the raw memory data as JSON
-    res.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Content-Disposition': 'attachment; filename="memory-backup.json"'
-    });
-    res.end(JSON.stringify(memoryData, null, 2));
-    return;
-  } catch (error) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Failed to export memory data' }));
-    return;
+  // FIXED: Download endpoint now reads from the same file that saves write to
+  if (parsedUrl.pathname === '/download-memory' && req.method === 'GET') {
+    try {
+      // Use the live in-memory data that's kept in sync with file
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Disposition': 'attachment; filename="memory-backup.json"'
+      });
+      res.end(JSON.stringify(memoryData, null, 2));
+      return;
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to export memory data' }));
+      return;
+    }
   }
-}
 
-// Add this route for debugging
+// FIXED: Debug endpoint now shows live data
 if (parsedUrl.pathname === '/debug' && req.method === 'GET') {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     totalEntities: memoryData.entities.length,
-    totalRelations: memoryData.relations.length,
+    totalRelations: memoryData.relations?.length || 0,
     entityNames: memoryData.entities.map(e => e.name),
     lastModified: new Date().toISOString(),
     sampleEntity: memoryData.entities[0] || null
@@ -948,13 +908,8 @@ if (parsedUrl.pathname === '/debug' && req.method === 'GET') {
       handleToolsCall(req, res);
       break;
     default:
-      // Handle the original MCP POST endpoint for backward compatibility
-      if (req.method === 'POST' && path === '/') {
-        handleMCPRequest(req, res);
-      } else {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-      }
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
   }
 });
 
